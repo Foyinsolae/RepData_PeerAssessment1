@@ -1,0 +1,118 @@
+---
+title: "Reproducible research course project 1"
+output: html_document
+---
+
+```{r download file, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+Ex <- read.csv("activity.csv")
+names(Ex)
+str(Ex)
+Ex$date <- as.Date(Ex$date)
+```
+
+```{r Histogram of total daily steps, echo = TRUE}
+TotalDailySteps<-with(Ex, tapply(steps, date, sum, na.rm=TRUE))
+hist(TotalDailySteps, col = "maroon")
+```
+The next step is to report the mean and median of total number of steps taken each day. This is a simple and straight forward task
+```{r mean and media, echo=TRUE}
+meanStep<-round(mean(TotalDailySteps), 2)
+medianStep<-round(median(TotalDailySteps), 2)
+```
+ so the meanstep is 9354.23 and medianStep is 10395
+ 
+#What is the average daily activity pattern?
+For this part of analysis, we should calculate average steps taken on each 15 minutes interval across all study period. Hence, I calculated it into a new variable.
+ 
+``` {r interval seps, echo=TRUE}
+intervalSteps<-with(Ex, tapply(steps, interval, mean, na.rm=TRUE)) 
+```
+Now, we can plot the mean step value for each interval. Again, 'base plotting system' is more the sufficient for this step.
+
+```{r baseplot, echo=TRUE}
+plot(intervalSteps,axes = F, type="l", col="maroon", xlab="Time", ylab="Average Number of Steps", main="Average Daily Activity Pattern")
+axis(1,at=c(0, 36, 72, 108, 144, 180, 216, 252, 288), label = c("0:00", "3:00","6:00", "9:00", "12:00","15:00","18:00","21:00","24:00"))
+axis(2)
+```
+We also have been asked about the interval with maximum average steps taken within. We can calculate it as follow:
+
+```{r interval steps, echo=TRUE}
+intervalSteps[which.max(intervalSteps)]
+```
+
+
+#Imputing missing values
+First, I want to report the number of missing values.
+
+``` {r missing values, echo=TRUE}
+NAcount<-sum(is.na(Ex$steps))
+NAcount
+```
+In this data frame, there are 2304 rows with missing value for 'Steps' variable.
+
+#For imputing missing values, I use the very nice "MICE" package.
+
+```{r load MICE package, echo=TRUE}
+library(mice)
+imputedValues<-mice(Ex)
+```
+Now we have imputed values and can reconstruct the new database:
+
+```{r, echo=TRUE}
+imputedEx<-complete(imputedValues)
+```
+Preprocessing of new dataframe:
+
+``` {r, echo=TRUE}
+imputedEx$date<-as.Date(imputedEx$date)
+```
+Calculating total daily steps:
+
+```{r, echo=TRUE}
+TotalDailySteps_Ex<-with(imputedEx, tapply(steps, date, sum, na.rm=TRUE))
+```
+Making the histograms:
+```{r, echo=TRUE}
+hist(TotalDailySteps_Ex, col = "pink")
+```
+
+Calculating the central values:
+```{r, echo=TRUE}
+meanStep_Ex<-round(mean(TotalDailySteps_Ex), 2)
+medianStep_Ex<-round(median(TotalDailySteps_Ex), 2)
+```
+So, after imputation of the missing values, the mean total daily steps is 1.12552610^{4} and the median is 1.127910^{4}.
+
+Calculating the resulted change in central values:
+```{r, echo=TRUE}
+meanDiff<- meanStep - meanStep_Ex
+medianDiff<- medianStep - medianStep_Ex
+```
+After imputation, change in mean value is -1901.03 and change in median value is -884
+
+
+##Are there differences in activity patterns between weekdays and weekends?
+
+In the last step, we want to compare the difference between activity on weekdays and weekends.
+```{r, echo=TRUE}
+imputedEx$weekdays<-weekdays(imputedEx$date)
+imputedEx$dayType<-ifelse(imputedEx$weekdays%in%c("Saturday", "Sunday"), "Weekend", "Weekday")
+```
+
+Now, we can calculate average steps in each interval based on type of weekday:
+```{r, echo=TRUE}
+intervalDaySteps<-aggregate(steps~interval+dayType, data = imputedEx, mean)
+```
+
+For plotting data in two panels, I use the ggplot2 system:
+```{r, echo=TRUE}
+library(ggplot2)
+g1<-ggplot(intervalDaySteps, aes(interval, steps))
+g1 + geom_line() +
+        facet_grid(dayType ~ .) +
+        xlab("5-minute interval") + 
+        ylab("Number of steps")
+```
+
+The end!
